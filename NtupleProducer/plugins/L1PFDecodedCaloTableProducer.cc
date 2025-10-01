@@ -73,7 +73,14 @@ L1PFDecodedCaloTableProducer::produce(edm::StreamID id, edm::Event& iEvent, cons
         vals_hw_abseta, 
         vals_hw_meanz, 
         vals_sigmaetaeta, vals_hw_sigmaetaeta, 
-        vals_sigmaphiphi, vals_hw_sigmaphiphi, vals_sigmazz, vals_hw_sigmazz;
+        vals_sigmaphiphi, vals_hw_sigmaphiphi, vals_sigmazz, vals_hw_sigmazz,
+        vals_firstlayer, vals_maxlayer, vals_hw_maxlayer,
+        vals_sigmarr, vals_hw_sigmarr, vals_sigmarrmax, vals_hw_sigmarrmax,
+        vals_sigmarrmean, vals_hw_sigmarrmean, vals_zbarycenter, vals_ebm0,
+        vals_ebm1, vals_hbm,
+        vals_first1layers, vals_first3layers, vals_first5layers,
+        vals_firstHcal1layers, vals_firstHcal3layers, vals_firstHcal5layers,
+        vals_last1layers, vals_last3layers, vals_last5layers;
 
     vals_empt.resize(ncands);
     vals_srrTot.resize(ncands);
@@ -100,6 +107,28 @@ L1PFDecodedCaloTableProducer::produce(edm::StreamID id, edm::Event& iEvent, cons
     vals_sigmazz.resize(ncands);
     vals_hw_sigmazz.resize(ncands);
 
+    vals_firstlayer.resize(ncands);
+    vals_maxlayer.resize(ncands);
+    vals_hw_maxlayer.resize(ncands);
+    vals_sigmarr.resize(ncands);
+    vals_hw_sigmarr.resize(ncands);
+    vals_sigmarrmax.resize(ncands);
+    vals_hw_sigmarrmax.resize(ncands);
+    vals_sigmarrmean.resize(ncands);
+    vals_hw_sigmarrmean.resize(ncands);
+    vals_zbarycenter.resize(ncands);
+    vals_ebm0.resize(ncands);
+    vals_ebm1.resize(ncands);
+    vals_hbm.resize(ncands);
+    vals_first1layers.resize(ncands);
+    vals_first3layers.resize(ncands);
+    vals_first5layers.resize(ncands);
+    vals_firstHcal1layers.resize(ncands);
+    vals_firstHcal3layers.resize(ncands);
+    vals_firstHcal5layers.resize(ncands);
+    vals_last1layers.resize(ncands);
+    vals_last3layers.resize(ncands);
+    vals_last5layers.resize(ncands);
 
     for (unsigned int i = 0; i < ncands; ++i) {
         const auto cand = selected[i];
@@ -115,6 +144,11 @@ L1PFDecodedCaloTableProducer::produce(edm::StreamID id, edm::Event& iEvent, cons
             vals_PuIdProb[i] = digi->floatPuProb();
             vals_EmIdProb[i] = digi->floatEmProb();
 
+            const l1tp2::CaloCrystalCluster *crycl = dynamic_cast<const l1tp2::CaloCrystalCluster *>(cand->constituentsAndFractions().front().first.get());
+            if(crycl) {
+                vals_caloIso[i] = crycl->isolation();
+                vals_showerShape[i] = crycl->e2x5() / crycl->e5x5();
+            }
         } else if(auto digi = std::get_if<l1ct::HadCaloObj>(&obj)){
             vals_empt[i] = digi->floatEmPt();
 
@@ -142,6 +176,10 @@ L1PFDecodedCaloTableProducer::produce(edm::StreamID id, edm::Event& iEvent, cons
             static constexpr float SIGMAZZ_LSB = 778.098 / (1 << 7);
             static constexpr float SIGMAPHIPHI_LSB = 0.12822 / (1 << 7);
             static constexpr float SIGMAETAETA_LSB = 0.148922 / (1 << 5);
+            static constexpr float SIGMARR_LSB = 0.2 / 10;
+            static constexpr float FIRST_LAYERS = 0.1 / (1 << 5);
+            static constexpr float HGCAL_LAYERS = 0.1667 / (1 << 6);
+            static constexpr float LAST_LAYERS = 0.5 / (1 << 8);
 
             ap_uint<6> w_showerlenght = hgcalcl->showerLength();
             ap_uint<6> w_coreshowerlenght = hgcalcl->coreShowerLength();
@@ -152,6 +190,30 @@ L1PFDecodedCaloTableProducer::produce(edm::StreamID id, edm::Event& iEvent, cons
             ap_uint<5> w_sigmaetaeta = round(hgcalcl->sigmaEtaEtaTot() / SIGMAETAETA_LSB);
             ap_uint<7> w_sigmaphiphi = round(hgcalcl->sigmaPhiPhiTot() / SIGMAPHIPHI_LSB);
             ap_uint<7> w_sigmazz = round(hgcalcl->sigmaZZ() / SIGMAZZ_LSB);
+            
+            ap_uint<6> w_firstlayer = hgcalcl->firstLayer();
+            ap_uint<7> w_maxlayer = hgcalcl->maxLayer();
+
+            ap_uint<7> w_sigmarr = round(hgcalcl->sigmaRRTot() / SIGMARR_LSB);
+            ap_uint<7> w_sigmarrmax = round(hgcalcl->sigmaRRMax() / SIGMARR_LSB);
+            ap_uint<7> w_sigmarrmean = round(hgcalcl->sigmaRRMean() / SIGMARR_LSB);
+
+            ap_uint<7> w_zbarycenter = round(hgcalcl->zBarycenter() / 1.); 
+
+            ap_uint<7> w_ebm0 = hgcalcl->ebm0();
+            ap_uint<7> w_ebm1 = hgcalcl->ebm1();
+            ap_uint<7> w_hbm = hgcalcl->hbm();
+
+            ap_uint<7> w_first1layers = round(hgcalcl->first1layers() / FIRST_LAYERS);
+            ap_uint<7> w_first3layers = round(hgcalcl->first3layers() / FIRST_LAYERS);
+            ap_uint<7> w_first5layers = round(hgcalcl->first5layers() / FIRST_LAYERS);
+            ap_uint<7> w_firstHcal1layers = round(hgcalcl->firstHcal1layers() / HGCAL_LAYERS);
+            ap_uint<7> w_firstHcal3layers = round(hgcalcl->firstHcal3layers() / HGCAL_LAYERS);
+            ap_uint<7> w_firstHcal5layers = round(hgcalcl->firstHcal5layers() / HGCAL_LAYERS);
+            ap_uint<7> w_last1layers = round(hgcalcl->last1layers() / LAST_LAYERS);
+            ap_uint<7> w_last3layers = round(hgcalcl->last3layers() / LAST_LAYERS);
+            ap_uint<7> w_last5layers = round(hgcalcl->last5layers() / LAST_LAYERS);
+
 
             vals_showerlength[i] = w_showerlenght.to_int();
             vals_coreshowerlength[i] = w_coreshowerlenght.to_int();
@@ -166,6 +228,27 @@ L1PFDecodedCaloTableProducer::produce(edm::StreamID id, edm::Event& iEvent, cons
             vals_hw_sigmaphiphi[i] = w_sigmaphiphi.to_float();
             vals_sigmazz[i] = w_sigmazz * SIGMAZZ_LSB;
             vals_hw_sigmazz[i] = w_sigmazz.to_float();
+            vals_firstlayer[i] = w_firstlayer.to_float();
+            vals_maxlayer[i] = w_maxlayer.to_float();
+            vals_sigmarr[i] = w_sigmarr * SIGMARR_LSB;
+            vals_hw_sigmarr[i] = w_sigmarr.to_float();
+            vals_sigmarrmax[i] = w_sigmarrmax * SIGMARR_LSB;
+            vals_hw_sigmarrmax[i] = w_sigmarrmax.to_float();
+            vals_sigmarrmean[i] = w_sigmarrmean * SIGMARR_LSB;
+            vals_hw_sigmarrmean[i] = w_sigmarrmean.to_float();
+            vals_zbarycenter[i] = w_zbarycenter.to_float();
+            vals_ebm0[i] = w_ebm0.to_float();
+            vals_ebm1[i] = w_ebm1.to_float();
+            vals_hbm[i] = w_hbm.to_float();
+            vals_first1layers[i] = w_first1layers.to_float();
+            vals_first3layers[i] = w_first3layers.to_float();
+            vals_first5layers[i] = w_first5layers.to_float();
+            vals_firstHcal1layers[i] = w_firstHcal1layers.to_float();
+            vals_firstHcal3layers[i] = w_firstHcal3layers.to_float();
+            vals_firstHcal5layers[i] = w_firstHcal5layers.to_float();
+            vals_last1layers[i] = w_last1layers.to_float();
+            vals_last3layers[i] = w_last3layers.to_float();
+            vals_last5layers[i] = w_last5layers.to_float();
         }
     }
 
@@ -195,6 +278,29 @@ L1PFDecodedCaloTableProducer::produce(edm::StreamID id, edm::Event& iEvent, cons
     out->addColumn<float>("hwSigmaphiphi", vals_hw_sigmaphiphi, "");
     out->addColumn<float>("sigmazz", vals_sigmazz, "");
     out->addColumn<float>("hwSigmazz", vals_hw_sigmazz, "");
+
+    out->addColumn<float>("firstlayer", vals_firstlayer, "");
+    out->addColumn<float>("maxlayer", vals_maxlayer, "");
+    out->addColumn<float>("hwMaxlayer", vals_hw_maxlayer, "");
+    out->addColumn<float>("sigmarr", vals_sigmarr, "");
+    out->addColumn<float>("hwSigmarr", vals_hw_sigmarr, "");
+    out->addColumn<float>("sigmarrmax", vals_sigmarrmax, "");
+    out->addColumn<float>("hwSigmarrmax", vals_hw_sigmarrmax, "");
+    out->addColumn<float>("sigmarrmean", vals_sigmarrmean, "");
+    out->addColumn<float>("hwSigmarrmean", vals_hw_sigmarrmean, "");
+    out->addColumn<float>("zbarycenter", vals_zbarycenter, "");
+    out->addColumn<float>("ebm0", vals_ebm0, "");
+    out->addColumn<float>("ebm1", vals_ebm1, "");
+    out->addColumn<float>("hbm", vals_hbm, "");
+    out->addColumn<float>("first1layers", vals_first1layers, "");
+    out->addColumn<float>("first3layers", vals_first3layers, "");
+    out->addColumn<float>("first5layers", vals_first5layers, "");
+    out->addColumn<float>("firstHcal1layers", vals_firstHcal1layers, "");
+    out->addColumn<float>("firstHcal3layers", vals_firstHcal3layers, "");
+    out->addColumn<float>("firstHcal5layers", vals_firstHcal5layers, "");
+    out->addColumn<float>("last1layers", vals_last1layers, "");
+    out->addColumn<float>("last3layers", vals_last3layers, "");
+    out->addColumn<float>("last5layers", vals_last5layers, "");
 
     // save to the event branches
     iEvent.put(std::move(out));
